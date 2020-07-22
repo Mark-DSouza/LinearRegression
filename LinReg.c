@@ -9,17 +9,22 @@ typedef struct MATRIX {
     int cols;
 } Matrix;
 
+// tested
 void init(Matrix *mat, int rows, int columns) {
     mat -> matrix = (double *)malloc(rows * columns * sizeof(double));
     mat -> rows = rows;
     mat -> cols = columns;
 }
 
+// tested
 void del(Matrix *mat) {
+    if (mat == NULL)
+        return;
     free(mat -> matrix);
     free(mat);
 }
 
+// tested
 Matrix *scaMul(double scalar, Matrix *mat) {
     int rows = mat -> rows;
     int cols = mat -> cols;
@@ -33,6 +38,7 @@ Matrix *scaMul(double scalar, Matrix *mat) {
     return res;
 }
 
+// tested
 Matrix *matAdd(Matrix *mat1, Matrix *mat2, int sign) {
     if (mat1 -> rows != mat2 -> rows || mat1 -> cols != mat2 -> cols) {
         printf("\nDimensions not compatible for matrix addition!\n");
@@ -51,8 +57,9 @@ Matrix *matAdd(Matrix *mat1, Matrix *mat2, int sign) {
     return res;
 }
 
+// tested rigorously
 Matrix *matMul(Matrix *mat1, Matrix *mat2) {
-    if (mat1 -> rows != mat2 -> cols) {
+    if (mat1 -> cols != mat2 -> rows) {
         printf("\nDimensions not compatible for matrix multiplication!\n");
         return NULL;
     }
@@ -68,12 +75,13 @@ Matrix *matMul(Matrix *mat1, Matrix *mat2) {
             res -> matrix[i * cols + j] = 0;
             for (int k = 0; k < common; k++)
                 res -> matrix[i * cols + j] 
-                    += mat1 -> matrix[i * cols + k] * mat2 -> matrix[k * cols + j];
+                    += mat1 -> matrix[i * common + k] * mat2 -> matrix[k * cols + j];
         }
     
     return res; 
 }
 
+// Tested
 Matrix *matTrans(Matrix *mat) {
     int rows = mat -> cols;
     int cols = mat -> rows;
@@ -82,12 +90,18 @@ Matrix *matTrans(Matrix *mat) {
     init(trans, rows, cols);
     for (int i = 0; i < rows; i++)
         for (int j = 0; j < cols; j++)
-            trans -> matrix[i * cols + j] = mat -> matrix[j * cols + i];
+            trans -> matrix[i * cols + j] = mat -> matrix[j * rows + i];
     
     return trans;
 }
 
+// Tested
 void matDisplay(Matrix *mat) {
+    if (mat == NULL) {
+        printf("\nNo Matrix available for Display!\n");
+        return;
+    }
+
     int rows = mat -> rows;
     int cols = mat -> cols;
     for (int i = 0; i < rows; i++) {
@@ -97,49 +111,54 @@ void matDisplay(Matrix *mat) {
     }
 }
 
+// tested rigourously
 double computeCost(Matrix *HypoMinusY, int m) {
     double cost = 0;
     for (int i = 0; i < m; i++)
         cost += pow(HypoMinusY -> matrix[i], 2);
-    cost *= 0.5 * m;
+    cost *= 0.5 / m;
     
     return cost;
 }
 
+// tested
 Matrix *gradientDescent(Matrix *X, Matrix *y, Matrix *theta, 
-                            int alpha, int iterations, int m) 
+                            double alpha, int iterations, int m) 
 {
     Matrix *Hypo;
     Matrix *HypoMinusY;
     Matrix *XTrans;
     Matrix *Dow;
     Matrix *AlphaDow;
-    Matrix *temp;
+    Matrix *prevTheta;
     
+    XTrans = matTrans(X);
+
     for (int i = 1; i <= iterations; i++) {
         Hypo = matMul(X, theta);
         HypoMinusY = matAdd(Hypo, y, -1);
-        XTrans = matTrans(X);
         Dow = matMul(XTrans, HypoMinusY);
         AlphaDow = scaMul(alpha / m, Dow);
 
-        temp = theta;
+        prevTheta = theta;
         theta = matAdd(theta, AlphaDow, -1);
         if (!(i % 5))
             printf("Iteration = %d; Cost = %lf\n", i, computeCost(HypoMinusY, m));
         
         del(Hypo);
         del(HypoMinusY);
-        del(XTrans);
         del(Dow);
         del(AlphaDow);
-        del(temp);
+        del(prevTheta);
     }
+
+    del(XTrans);
 
     return theta;
 }
 
-void getDataset(Matrix *X, Matrix *y, Matrix *theta,int m, int n, char *fileName) {
+// tested
+void getDataset(Matrix *X, Matrix *y, int m, int n, char *fileName) {
     FILE *fp = fopen(fileName, "r");
      
     for (int i = 0; i < m; i++){
@@ -154,6 +173,7 @@ void getDataset(Matrix *X, Matrix *y, Matrix *theta,int m, int n, char *fileName
     fclose(fp);
 }
 
+// tested
 void getUserQuery(Matrix *query, int n) {
     printf("\nEnter the features of the required prediction:");
     query->matrix[0] = 1;
@@ -161,16 +181,20 @@ void getUserQuery(Matrix *query, int n) {
         scanf("%lf", &(query->matrix[i]));
 }
 
+// tested
 void displayPrediction(Matrix *theta, Matrix *query) {
-    Matrix *res = (Matrix *)malloc(sizeof(Matrix));
-    res = matMul(query, theta);
+    Matrix *res = matMul(query, theta);
 
     printf("\nThe prediction for the features  ");
-    for (int i = 1; i <= query -> cols; i++)
+    for (int i = 0; i < query -> cols; i++)
         printf("%lf  ", query -> matrix[i]);
     printf("is -> %lf\n", res -> matrix[0]);
+
+    del(res);
 }
 
+
+// tested
 void linearRegression(double alpha, int iterations, int m, int n, char *fileName) {
     Matrix *X = (Matrix *)malloc(sizeof(Matrix));
     Matrix *y = (Matrix *)malloc(sizeof(Matrix));
@@ -180,7 +204,7 @@ void linearRegression(double alpha, int iterations, int m, int n, char *fileName
     init(y, m, 1);
     init(theta, n+1, 1);
     
-    getDataset(X, y, theta, m, n, fileName);
+    getDataset(X, y, m, n, fileName);
 
     for (int i = 0; i < n + 1; i++)
         theta -> matrix[i] = 0;
@@ -206,6 +230,7 @@ void linearRegression(double alpha, int iterations, int m, int n, char *fileName
     del(query);
 }
 
+// tested
 void getUserInput(double *alpha, int *iterations, int *m, int *n, char *fileName) {
     printf("\nEnter the value of the learning rate: ");
     scanf("%lf", alpha);
@@ -220,6 +245,7 @@ void getUserInput(double *alpha, int *iterations, int *m, int *n, char *fileName
     scanf(" %s", fileName);
 }
 
+// tested
 int main() {
     printf("\n=====Welcome to the Linear Regression Program=====\n\n\n");
     
@@ -235,6 +261,6 @@ int main() {
         printf("Do you want to perform another run of Linear Regression?[y/n]: ");
         scanf(" %c", &choice);
     } while(toupper(choice) == 'Y');
-    
+
     return 0;
 }
